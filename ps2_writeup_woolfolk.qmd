@@ -9,9 +9,9 @@ title: "Problem Set 2"
 author: "Jackson Woolfolk"
 date: today
 format:
-html:
-toc: true
-embed-resources: true
+  html:
+    toc: true
+    embed-resources: true
 ---
 
 GitHub repo: \<https://github.com/Jackson-Woolfolk/ec422_ps2_woolfolk\>
@@ -44,12 +44,80 @@ unemp_top_decreases_no_covid \<- unemp_no_2020 \|\> slice_min(unemployment_rate_
 
 ## \## Visualization
 
+library(ggplot2)
 
-#\| echo: false print(p1)
+library(forcats)
 
-#\| echo: false print(p2)
+```{r}
+#| echo: false
+#| fig-cap: "Description of plot 1"
+p1 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
+  geom_line(linewidth = 0.8) +
+  labs(
+    title = "Monthly Unemployment Rates (1976-2025)",
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    color = "Region"
+  ) +
+  theme_minimal()
 
-#\| echo: false print(p3)
+p1
+```
 
-#\| echo: false print(p4)
+![](images/clipboard-3438564236.png)
 
+```{r}
+#| echo: false
+#| fig-cap: "Description of plot 2"
+p2 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ region, scales = "free_y") +
+  labs(
+    title = "Unemployment Rates by Region",
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    color = "Region"
+  ) +
+  theme_minimal() + theme(legend.position = "none")
+
+p2
+```
+
+![](images/clipboard-3057902043.png)
+
+```{r}
+#| echo: false
+#| fig-cap: "Description of plot 3"
+p3 <- ggplot(unemp_summary, aes(x = fct_reorder(region, mean_rate), y = mean_rate, fill = region)) +
+  geom_col(show.legend = FALSE) +
+  labs(
+    title = "Average Unemployment Rate by Region (Full Sample)",
+    x = "Region",
+    y = "Mean Unemployment Rate (%)"
+  ) +
+  theme_minimal()
+
+p3
+```
+
+![](images/clipboard-3536759443.png)
+
+```{r}
+#| echo: false
+#| fig-cap: "Description of plot 4"
+p4 <- ggplot(unemp_recent, aes(x = date, y = unemployment_rate, color = region)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Recent Unemployment Trends (2015–2025)",
+    x = "Date",
+    y = "Unemployment Rate (%)",
+    color = "Region"
+  ) +
+  theme_minimal()
+
+p4
+```
+
+![](images/clipboard-1388292034.png)
+
+I chose to look at trends in state unemployment rates against each other, and used recent data so I could visualize the state's reactions to the Covid-19 pandemic. This helps distinguish what states were able to recover faster than others after the pandemic caused a massive spike in unemployment.
