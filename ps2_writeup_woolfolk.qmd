@@ -1,0 +1,55 @@
+---
+title: "ps2_writeup_woolfolk"
+format: html
+editor: visual
+---
+
+---
+title: "Problem Set 2"
+author: "Jackson Woolfolk"
+date: today
+format:
+html:
+toc: true
+embed-resources: true
+---
+
+GitHub repo: \<https://github.com/Jackson-Woolfolk/ec422_ps2_woolfolk\>
+
+\`\`\`{r} #\| include: false library(tidyverse) library(tidyquant) library(knitr)
+
+## 
+
+## Read data
+
+unemp_raw \<- read_rds("data/unemp_raw.rds")
+
+## \## Wrangling steps
+
+unemp \<- unemp_raw \|\> rename(unemployment_rate = price) \|\> mutate( region = case_when( symbol == "UNRATE" \~ "United States", symbol == "ORUR" \~ "Oregon", symbol == "CAUR" \~ "California", symbol == "TXUR" \~ "Texas", symbol == "NYUR" \~ "New York" ) )
+
+unemp \<- unemp \|\> arrange(region, date) \|\> group_by(region) \|\> mutate( unemployment_rate = replace( unemployment_rate, date == as.Date("2025-10-01"), unemployment_rate\[date == as.Date("2025-09-01")\] ) ) \|\> ungroup() \|\> mutate(unemployment_rate_change = unemployment_rate - lag(unemployment_rate)) \|\> ungroup()
+
+unemp_recent \<- unemp \|\> filter(date \>= as.Date("2015-01-01"))
+
+unemp_summary \<- unemp \|\> group_by(region) \|\> summarize( mean_rate = mean(unemployment_rate, na.rm = TRUE), min_rate = min(unemployment_rate, na.rm = TRUE), max_rate = max(unemployment_rate, na.rm = TRUE) )
+
+unemp_recent_summary \<- unemp_recent \|\> group_by(region) \|\> summarize( mean_rate = mean(unemployment_rate, na.rm = TRUE), min_rate = min(unemployment_rate, na.rm = TRUE), max_rate = max(unemployment_rate, na.rm = TRUE) )
+
+unemp_no_2020 \<- unemp \|\> filter(format(date, "%Y") != "2020")
+
+unemp_top_increases_no_covid \<- unemp_no_2020 \|\> slice_max(unemployment_rate_change, n = 5, with_ties = TRUE)
+
+unemp_top_decreases_no_covid \<- unemp_no_2020 \|\> slice_min(unemployment_rate_change, n = 5, with_ties = TRUE)
+
+## \## Visualization
+
+
+#\| echo: false print(p1)
+
+#\| echo: false print(p2)
+
+#\| echo: false print(p3)
+
+#\| echo: false print(p4)
+
