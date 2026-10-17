@@ -1,11 +1,5 @@
 ---
-title: "ps2_writeup_woolfolk"
-format: html
-editor: visual
----
-
----
-title: "Problem Set 2"
+title: "Woolfolk EC422 PS2 Writeup"
 author: "Jackson Woolfolk"
 date: today
 format:
@@ -14,35 +8,135 @@ format:
     embed-resources: true
 ---
 
-GitHub repo: \<https://github.com/Jackson-Woolfolk/ec422_ps2_woolfolk\>
+GitHub repo: <https://github.com/Jackson-Woolfolk/ec422_ps2_woolfolk>
 
-\`\`\`{r} #\| include: false library(tidyverse) library(tidyquant) library(knitr)
-
-## 
-
+```{r}
+#| include: false 
+library(tidyverse) 
+library(tidyquant) 
+library(knitr)
 ## Read data
+unemp_raw <- read_rds("data/unemp_raw.rds")
+## Cleaning
+unemp <- unemp_raw |>
+  rename(unemployment_rate = price) |>
+  mutate(
+    region = case_when(
+      symbol == "UNRATE" ~ "United States",
+      symbol == "ORUR"   ~ "Oregon",
+      symbol == "CAUR"   ~ "California",
+      symbol == "TXUR"   ~ "Texas",
+      symbol == "NYUR"   ~ "New York"
+    )
+  )
 
-unemp_raw \<- read_rds("data/unemp_raw.rds")
+unemp <- unemp |>
+  arrange(region, date) |>
+  group_by(region) |>
+  mutate(
+    unemployment_rate = replace(
+      unemployment_rate,
+      date == as.Date("2025-10-01"),
+      unemployment_rate[date == as.Date("2025-09-01")]
+    )
+  ) |>
+  ungroup()
+  
+unemp <- unemp |>  
+  arrange(region, date) |>  
+  group_by(region) |>  
+  mutate(unemployment_rate_change = unemployment_rate - lag(unemployment_rate)) |>  
+  ungroup()
 
-## \## Wrangling steps
+unemp_recent <- unemp |> 
+  filter(date >= as.Date("2015-01-01"))
+  
+## Summary
+unemp_summary <- unemp |> 
+  group_by(region) |> 
+  summarize(
+    mean_rate = mean(unemployment_rate, na.rm = TRUE),
+    min_rate  = min(unemployment_rate,  na.rm = TRUE),
+    max_rate  = max(unemployment_rate,  na.rm = TRUE)
+  )
 
-unemp \<- unemp_raw \|\> rename(unemployment_rate = price) \|\> mutate( region = case_when( symbol == "UNRATE" \~ "United States", symbol == "ORUR" \~ "Oregon", symbol == "CAUR" \~ "California", symbol == "TXUR" \~ "Texas", symbol == "NYUR" \~ "New York" ) )
+unemp_recent_summary <- unemp_recent |>
+  group_by(region) |>
+  summarize(
+    mean_rate = mean(unemployment_rate, na.rm = TRUE),
+    min_rate  = min(unemployment_rate,  na.rm = TRUE),
+    max_rate  = max(unemployment_rate,  na.rm = TRUE)
+  )
 
-unemp \<- unemp \|\> arrange(region, date) \|\> group_by(region) \|\> mutate( unemployment_rate = replace( unemployment_rate, date == as.Date("2025-10-01"), unemployment_rate\[date == as.Date("2025-09-01")\] ) ) \|\> ungroup() \|\> mutate(unemployment_rate_change = unemployment_rate - lag(unemployment_rate)) \|\> ungroup()
+## Extremes
+unemp_top_increases <- unemp |> 
+  slice_max(unemployment_rate_change, n = 5, with_ties = TRUE)
 
-unemp_recent \<- unemp \|\> filter(date \>= as.Date("2015-01-01"))
+unemp_top_decreases <- unemp |> 
+  slice_min(unemployment_rate_change, n = 5, with_ties = TRUE)
+  
 
-unemp_summary \<- unemp \|\> group_by(region) \|\> summarize( mean_rate = mean(unemployment_rate, na.rm = TRUE), min_rate = min(unemployment_rate, na.rm = TRUE), max_rate = max(unemployment_rate, na.rm = TRUE) )
+## Extremes without 2020
+unemp_no_2020 <- unemp |> 
+  filter(format(date, "%Y") != "2020")
 
-unemp_recent_summary \<- unemp_recent \|\> group_by(region) \|\> summarize( mean_rate = mean(unemployment_rate, na.rm = TRUE), min_rate = min(unemployment_rate, na.rm = TRUE), max_rate = max(unemployment_rate, na.rm = TRUE) )
+unemp_top_increases_no_covid <- unemp_no_2020 |> 
+  slice_max(unemployment_rate_change, n = 5, with_ties = TRUE)
 
-unemp_no_2020 \<- unemp \|\> filter(format(date, "%Y") != "2020")
+unemp_top_decreases_no_covid <- unemp_no_2020 |> 
+  slice_min(unemployment_rate_change, n = 5, with_ties = TRUE)
 
-unemp_top_increases_no_covid \<- unemp_no_2020 \|\> slice_max(unemployment_rate_change, n = 5, with_ties = TRUE)
+```
 
-unemp_top_decreases_no_covid \<- unemp_no_2020 \|\> slice_min(unemployment_rate_change, n = 5, with_ties = TRUE)
+## Data
+The data are seasonally adjusted monthly unemployment rates for the United States, Oregon, California, Texas, and New York. They come from the St. Louis Fed's Federal Reserve Economic Data(FRED) and were downloaded with the 'tidyquant' package. The sample runs from January 1976 to October 2025. Each row is one series in one month, and the 'price' column holds the unemployment rate (in percent).
 
-## \## Visualization
+```{r}
+#| echo: false
+kable(head(unemp_raw), caption = "First six rows of the raw data (long  format).")
+```
+
+## Wrangling Steps
+I renamed 'price' to 'unemployment_rate' and added a readable 'region' label for each series. Because of the fall 2025 government shutdown, the October 2025 value is missing, so I replaced it with the September 2025 value within each region. I also computed the month-over-month change in the unemployment rate, measured in percentage points. The tables below summarize the results.
+ 
+```{r}
+#| echo: false
+kable(
+  unemp_summary,
+  caption = "Summary Statistics: Full Sample (1976-2025)",
+    col.names = c("Region", "Mean Rate (%)", "Min Rate (%)", "Max Rate (%)"),
+    digits = 2
+  )
+```
+
+```{r}
+#| echo: false
+kable(
+  unemp_recent_summary,
+  caption = "Summary Statistics: Recent Sample (2015 Onward)",
+    col.names = c("Region", "Mean Rate (%)", "Min Rate (%)", "Max Rate (%)"),
+    digits = 2
+  )
+```
+
+```{r}
+#| echo: false
+kable(
+  unemp_top_increases_no_covid,
+  caption = "Largest Month-over-Month Unemployment Increases (Excluding 2020)",
+  digits = 2
+  )
+```
+
+```{r}
+#| echo: false
+kable(
+  unemp_top_decreases_no_covid,
+  caption = "Largest Month-over-Month Unemployment Decreases (Excluding 2020)",
+  digits = 2
+  )
+```
+## Visualization
 
 library(ggplot2)
 
@@ -50,7 +144,7 @@ library(forcats)
 
 ```{r}
 #| echo: false
-#| fig-cap: "Description of plot 1"
+#| fig-cap: "Monthly unemployment rate for the U.S. and four states, one line per region."
 p1 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
   geom_line(linewidth = 0.8) +
   labs(
@@ -64,14 +158,13 @@ p1 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
 p1
 ```
 
-![](images/clipboard-3438564236.png)
 
 ```{r}
 #| echo: false
-#| fig-cap: "Description of plot 2"
+#| fig-cap: "The same series as the previous figure, shown in a separate panel for each region (each panel has its own y-axis scale)"
 p2 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
   geom_line(linewidth = 0.8) +
-  facet_wrap(~ region, scales = "free_y") +
+  facet_wrap(~ region) +
   labs(
     title = "Unemployment Rates by Region",
     x = "Date",
@@ -83,11 +176,10 @@ p2 <- ggplot(unemp, aes(x = date, y = unemployment_rate, color = region)) +
 p2
 ```
 
-![](images/clipboard-3057902043.png)
 
 ```{r}
 #| echo: false
-#| fig-cap: "Description of plot 3"
+#| fig-cap: "Mean unemployment rate by region over the full sample, ordered from lowest to highest."
 p3 <- ggplot(unemp_summary, aes(x = fct_reorder(region, mean_rate), y = mean_rate, fill = region)) +
   geom_col(show.legend = FALSE) +
   labs(
@@ -100,11 +192,9 @@ p3 <- ggplot(unemp_summary, aes(x = fct_reorder(region, mean_rate), y = mean_rat
 p3
 ```
 
-![](images/clipboard-3536759443.png)
-
 ```{r}
 #| echo: false
-#| fig-cap: "Description of plot 4"
+#| fig-cap: "Unemployment rates since January 2015, higthlighting the COVID-19 spike and recovery between regions."
 p4 <- ggplot(unemp_recent, aes(x = date, y = unemployment_rate, color = region)) +
   geom_line(linewidth = 1) +
   labs(
@@ -116,8 +206,11 @@ p4 <- ggplot(unemp_recent, aes(x = date, y = unemployment_rate, color = region))
   theme_minimal()
 
 p4
+
 ```
 
-![](images/clipboard-1388292034.png)
-
+## My Graph
 I chose to look at trends in state unemployment rates against each other, and used recent data so I could visualize the state's reactions to the Covid-19 pandemic. This helps distinguish what states were able to recover faster than others after the pandemic caused a massive spike in unemployment.
+
+## Final Reflection
+The  ggplot part felt the most straightforward once I started, because it became pretty easy to understand exactly what I was pulling and working with from the dataset. What tripped me up was the setup around the code. My first commits and pushes to GitHub kept failing with permission errors until I figured out how personal access tokens and cached credentials in my computer work. In Quarto, I also had trouble with backticks and chunk options: a single misplaced backtick or a '#|' line in the wrong spot kept my code from running and just added to the confusion. There were a few times I needed help from Claude to run through my code for errors, but it showed me what to look for as I troubleshoot. I feel much more comfortable with the Git workflow now, especially committing in small steps with specific messages and pushing as I go instead of saving everything for the end.
